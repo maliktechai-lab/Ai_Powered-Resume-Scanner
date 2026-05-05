@@ -1,0 +1,158 @@
+AI RESUME SCANNER — DEPLOYMENT GUIDE
+======================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. LOCAL DEV — Docker (Easiest)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Requirements: Docker Desktop, Git
+
+  git clone https://github.com/YOUR_USERNAME/resume-scanner.git
+  cd resume-scanner
+  docker compose up --build
+
+  Frontend  →  http://localhost:5173
+  API Docs  →  http://localhost:8000/docs
+
+  Stop:              docker compose down
+  Stop + wipe DB:    docker compose down -v
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. LOCAL DEV — Without Docker
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Requirements: Python 3.11+, Node.js 20+, MongoDB on port 27017
+
+Backend:
+  cd backend
+  python -m venv venv
+  source venv/bin/activate        # Windows: venv\Scripts\activate
+  pip install -r requirements.txt
+  python -m spacy download en_core_web_sm
+  uvicorn app.main:app --reload --port 8000
+
+Frontend:
+  cd frontend
+  npm install
+  npm run dev                     # http://localhost:5173
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. PRODUCTION — VPS / Cloud VM
+   (AWS EC2, DigitalOcean, Hetzner)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Minimum specs: 2 vCPU, 4 GB RAM, Ubuntu 22.04
+Open ports: 22, 80, 443
+
+Step 1 — Install Docker:
+  sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+  sudo usermod -aG docker $USER && newgrp docker
+
+Step 2 — Clone and configure:
+  git clone https://github.com/YOUR_USERNAME/resume-scanner.git
+  cd resume-scanner
+  cp backend/.env.example backend/.env
+  nano backend/.env              # Set a strong SECRET_KEY
+
+Step 3 — Run:
+  docker compose up -d --build
+
+Step 4 — Nginx reverse proxy:
+  sudo apt install -y nginx
+  Create /etc/nginx/sites-available/resume-scanner:
+
+    server {
+        listen 80;
+        server_name yourdomain.com;
+
+        location /api {
+            proxy_pass http://localhost:8000;
+            proxy_set_header Host $host;
+        }
+        location / {
+            proxy_pass http://localhost:5173;
+            proxy_set_header Host $host;
+        }
+    }
+
+  sudo ln -s /etc/nginx/sites-available/resume-scanner /etc/nginx/sites-enabled/
+  sudo nginx -t && sudo systemctl reload nginx
+
+Step 5 — Free HTTPS (Let's Encrypt):
+  sudo apt install -y certbot python3-certbot-nginx
+  sudo certbot --nginx -d yourdomain.com
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. PRODUCTION — Cloud Services (Free Tiers)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend → Railway.app or Render.com
+  - Connect GitHub repo, set root to /backend
+  - Add env vars: MONGO_URI, SECRET_KEY
+  - Railway auto-detects Dockerfile
+
+Frontend → Vercel (recommended)
+  - Import GitHub repo, set root to /frontend
+  - Build: npm run build  |  Output: dist/
+  - Add env var: VITE_API_URL=https://your-backend-url
+  - Update frontend/src/utils/api.js:
+      baseURL: import.meta.env.VITE_API_URL || '/api'
+
+Database → MongoDB Atlas (free tier)
+  - Create cluster at https://cloud.mongodb.com
+  - Set MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/resume_scanner
+  - Whitelist your server IP in Atlas Network Access
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. ENVIRONMENT VARIABLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+backend/.env:
+  MONGO_URI                    = mongodb://mongo:27017
+  DB_NAME                      = resume_scanner
+  SECRET_KEY                   = CHANGE-THIS-IN-PRODUCTION
+  ALGORITHM                    = HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES  = 1440
+
+frontend/.env (only for separate deployments):
+  VITE_API_URL = https://api.yourdomain.com
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. FIRST-RUN NOTE (AI Model Download)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On first startup the backend downloads "all-MiniLM-L6-v2" (~80 MB)
+from HuggingFace. This is cached — subsequent starts are instant.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. HEALTH CHECK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  curl http://localhost:8000/health
+  # Expected: {"status":"ok"}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. COMMON ISSUES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend crashes on startup
+  → Check MONGO_URI is reachable: docker compose logs backend
+
+CORS error in browser
+  → Add your frontend URL to allow_origins in backend/app/main.py
+
+File upload fails with 422
+  → Only .pdf and .docx are supported
+
+Score is always 0
+  → Model is still loading. Wait 30 seconds and retry.
+
+Port already in use
+  → docker compose down, then docker compose up --build
