@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import AuthPage from './pages/AuthPage'
+import LandingPage from './pages/LandingPage'
 import DashboardLayout from './pages/DashboardLayout'
 import SeekerHome from './components/seeker/SeekerHome'
 import UploadResume from './components/seeker/UploadResume'
@@ -12,7 +12,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<AuthPage />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/seeker" element={<DashboardLayout requiredRole="seeker" />}>
           <Route index element={<SeekerHome />} />
           <Route path="upload" element={<UploadResume />} />

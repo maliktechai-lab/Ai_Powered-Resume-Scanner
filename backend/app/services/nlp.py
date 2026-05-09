@@ -1,20 +1,13 @@
 import re
-import fitz  # PyMuPDF
-import docx
 from io import BytesIO
-from sentence_transformers import SentenceTransformer
+
+import docx
+import fitz  # PyMuPDF
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-_model = None
 
-def get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _model
-
-# Broad skill taxonomy — covers tech + non-tech
+# Broad skill taxonomy covering tech and non-tech skills.
 SKILLS_DB = {
     "python", "javascript", "typescript", "java", "c++", "c#", "go", "rust", "sql", "nosql",
     "react", "vue", "angular", "node.js", "fastapi", "flask", "django", "spring",
@@ -27,25 +20,28 @@ SKILLS_DB = {
     "excel", "tableau", "power bi", "figma", "photoshop",
 }
 
+
 def extract_text_from_file(content: bytes, filename: str) -> str:
     if filename.lower().endswith(".pdf"):
         doc = fitz.open(stream=content, filetype="pdf")
         return " ".join(page.get_text() for page in doc)
-    elif filename.lower().endswith(".docx"):
+    if filename.lower().endswith(".docx"):
         doc = docx.Document(BytesIO(content))
         return " ".join(p.text for p in doc.paragraphs)
     raise ValueError("Unsupported file type. Use PDF or DOCX.")
 
+
 def extract_skills(text: str) -> list[str]:
     text_lower = text.lower()
-    found = [skill for skill in SKILLS_DB if re.search(r'\b' + re.escape(skill) + r'\b', text_lower)]
+    found = [skill for skill in SKILLS_DB if re.search(r"\b" + re.escape(skill) + r"\b", text_lower)]
     return sorted(set(found))
 
+
 def compute_ats_score(resume_text: str, jd_text: str) -> float:
-    model = get_model()
-    embeddings = model.encode([resume_text, jd_text])
-    score = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+    vectors = TfidfVectorizer(stop_words="english", ngram_range=(1, 2)).fit_transform([resume_text, jd_text])
+    score = float(cosine_similarity(vectors[0], vectors[1])[0][0])
     return round(score * 100, 2)
+
 
 def match_resume_to_jd(resume_skills: list[str], jd_skills: list[str], resume_text: str, jd_text: str) -> dict:
     matched = [s for s in resume_skills if s in jd_skills]

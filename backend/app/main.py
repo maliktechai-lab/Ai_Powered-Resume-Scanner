@@ -4,13 +4,13 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.config import settings
 from app.models.user import User, Resume, JobDescription, CandidateMatch
-from app.api import auth, resumes, jobs
+from app.api import resumes, jobs, auth
 
 app = FastAPI(title="AI Resume Scanner")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

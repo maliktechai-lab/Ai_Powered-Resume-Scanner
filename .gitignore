@@ -5,12 +5,12 @@ __pycache__/
 venv/
 .venv/
 *.egg-info/
-dist/
 .pytest_cache/
 
 # Environment secrets — NEVER commit these
 .env
 *.env
+!.env.example
 
 # Node
 node_modules/

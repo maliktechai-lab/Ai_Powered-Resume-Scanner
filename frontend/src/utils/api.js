@@ -1,11 +1,6 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api' })
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+// In Docker: nginx proxies /api → backend. In dev: vite proxy handles /api → localhost:8000
+const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '/api' })
 
 export default api

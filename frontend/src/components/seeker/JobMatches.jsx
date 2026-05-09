@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RadialBarChart, RadialBar, ResponsiveContainer, Tooltip } from 'recharts'
+import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts'
 import api from '../../utils/api'
 
 export default function JobMatches() {
@@ -8,23 +8,37 @@ export default function JobMatches() {
   const [selectedResume, setSelectedResume] = useState('')
   const [matches, setMatches] = useState({})
   const [loading, setLoading] = useState({})
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/jobs/').then(({ data }) => setJobs(data))
-    api.get('/resumes/mine').then(({ data }) => { setResumes(data); if (data[0]) setSelectedResume(data[0].id) })
+    Promise.all([
+      api.get('/jobs/'),
+      api.get('/resumes/mine'),
+    ]).then(([jobsResponse, resumesResponse]) => {
+      setJobs(jobsResponse.data)
+      setResumes(resumesResponse.data)
+      if (resumesResponse.data[0]) setSelectedResume(resumesResponse.data[0].id)
+    }).catch(() => setError('Unable to load jobs or resumes. Please try again.'))
   }, [])
 
   const matchJob = async (jdId) => {
     if (!selectedResume) return
     setLoading((l) => ({ ...l, [jdId]: true }))
-    const { data } = await api.get(`/jobs/${jdId}/match-my-resume?resume_id=${selectedResume}`)
-    setMatches((m) => ({ ...m, [jdId]: data }))
-    setLoading((l) => ({ ...l, [jdId]: false }))
+    setError('')
+    try {
+      const { data } = await api.get(`/jobs/${jdId}/match-my-resume?resume_id=${selectedResume}`)
+      setMatches((m) => ({ ...m, [jdId]: data }))
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Unable to match this resume.')
+    } finally {
+      setLoading((l) => ({ ...l, [jdId]: false }))
+    }
   }
 
   return (
     <div>
       <h2 className="text-xl font-bold text-white mb-4">Job Matches</h2>
+      {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
       {resumes.length > 0 && (
         <div className="mb-4">
           <label className="text-gray-400 text-sm mr-2">Resume:</label>
@@ -47,7 +61,7 @@ export default function JobMatches() {
                     ))}
                   </div>
                 </div>
-                <button onClick={() => matchJob(job.id)} disabled={loading[job.id]}
+                <button onClick={() => matchJob(job.id)} disabled={loading[job.id] || !selectedResume}
                   className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg disabled:opacity-50">
                   {loading[job.id] ? '...' : 'Match'}
                 </button>
@@ -67,8 +81,8 @@ export default function JobMatches() {
                       <p className="text-gray-400 text-xs">Match Score</p>
                     </div>
                   </div>
-                  <p className="text-gray-300 text-sm">✅ Matched: {match.matched_skills.join(', ') || 'none'}</p>
-                  <p className="text-red-400 text-sm">❌ Missing: {match.missing_skills.join(', ') || 'none'}</p>
+                  <p className="text-gray-300 text-sm">Matched: {match.matched_skills.join(', ') || 'none'}</p>
+                  <p className="text-red-400 text-sm">Missing: {match.missing_skills.join(', ') || 'none'}</p>
                   <p className="text-gray-400 text-xs italic">{match.explanation}</p>
                 </div>
               )}

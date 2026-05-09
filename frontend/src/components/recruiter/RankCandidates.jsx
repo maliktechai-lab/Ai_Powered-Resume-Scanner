@@ -7,20 +7,29 @@ export default function RankCandidates() {
   const [files, setFiles] = useState([])
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/jobs/').then(({ data }) => { setJobs(data); if (data[0]) setSelectedJob(data[0].id) })
+    api.get('/jobs/')
+      .then(({ data }) => { setJobs(data); if (data[0]) setSelectedJob(data[0].id) })
+      .catch(() => setError('Unable to load jobs. Please try again.'))
   }, [])
 
   const rank = async (e) => {
     e.preventDefault()
     if (!selectedJob || files.length === 0) return
     setLoading(true)
-    const fd = new FormData()
-    Array.from(files).forEach((f) => fd.append('files', f))
-    const { data } = await api.post(`/jobs/${selectedJob}/rank`, fd)
-    setResults(data)
-    setLoading(false)
+    setError('')
+    try {
+      const fd = new FormData()
+      Array.from(files).forEach((f) => fd.append('files', f))
+      const { data } = await api.post(`/jobs/${selectedJob}/rank`, fd)
+      setResults(data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Unable to rank candidates.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const scoreColor = (score) => score >= 70 ? 'text-green-400' : score >= 40 ? 'text-yellow-400' : 'text-red-400'
@@ -42,8 +51,9 @@ export default function RankCandidates() {
         </div>
         <button type="submit" disabled={loading || !files.length}
           className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg font-semibold">
-          {loading ? 'Ranking...' : '🏆 Rank Candidates'}
+          {loading ? 'Ranking...' : 'Rank Candidates'}
         </button>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
       </form>
 
       {results.length > 0 && (
@@ -60,7 +70,7 @@ export default function RankCandidates() {
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-400 mb-1">✅ Matched Skills</p>
+                  <p className="text-gray-400 mb-1">Matched Skills</p>
                   <div className="flex flex-wrap gap-1">
                     {r.matched_skills.length ? r.matched_skills.map((s) => (
                       <span key={s} className="bg-green-900 text-green-300 px-2 py-0.5 rounded-full text-xs">{s}</span>
@@ -68,7 +78,7 @@ export default function RankCandidates() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-400 mb-1">❌ Missing Skills</p>
+                  <p className="text-gray-400 mb-1">Missing Skills</p>
                   <div className="flex flex-wrap gap-1">
                     {r.missing_skills.length ? r.missing_skills.map((s) => (
                       <span key={s} className="bg-red-900 text-red-300 px-2 py-0.5 rounded-full text-xs">{s}</span>

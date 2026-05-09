@@ -10,7 +10,8 @@ export default function UploadResume() {
   const upload = async (e) => {
     e.preventDefault()
     if (!file) return
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -44,7 +45,7 @@ export default function UploadResume() {
 
       {result && (
         <div className="mt-6 bg-gray-800 rounded-xl p-6">
-          <h3 className="text-white font-semibold mb-3">✅ Extracted Skills</h3>
+          <h3 className="text-white font-semibold mb-3">Extracted Skills</h3>
           <div className="flex flex-wrap gap-2">
             {result.skills.map((s) => (
               <span key={s} className="text-sm bg-indigo-900 text-indigo-300 px-3 py-1 rounded-full">{s}</span>

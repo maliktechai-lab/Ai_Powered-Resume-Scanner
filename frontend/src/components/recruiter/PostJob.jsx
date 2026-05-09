@@ -5,13 +5,20 @@ export default function PostJob() {
   const [form, setForm] = useState({ title: '', description: '' })
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    const { data } = await api.post('/jobs/', form)
-    setResult(data)
-    setLoading(false)
+    setError('')
+    try {
+      const { data } = await api.post('/jobs/', form)
+      setResult(data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Unable to post this job.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -26,10 +33,11 @@ export default function PostJob() {
           className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-semibold">
           {loading ? 'Analyzing...' : 'Post & Extract Skills'}
         </button>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
       </form>
       {result && (
         <div className="mt-4 bg-gray-800 rounded-xl p-5">
-          <p className="text-white font-semibold mb-2">✅ Extracted Required Skills</p>
+          <p className="text-white font-semibold mb-2">Extracted Required Skills</p>
           <div className="flex flex-wrap gap-2">
             {result.required_skills.map((s) => (
               <span key={s} className="text-sm bg-indigo-900 text-indigo-300 px-3 py-1 rounded-full">{s}</span>
